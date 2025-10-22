@@ -1,26 +1,21 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 from dotenv import load_dotenv
+
+# Opcional si usas .env sin tu gestor de procesos:
+# from dotenv import load_dotenv; load_dotenv()
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")  # definido en .env
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,      # Verifica conexiones “muertas”
-    pool_recycle=3600        # Recicla conexiones cada hora (MySQL)
-)
-
-
-# Crea la fábrica de sesiones (Unidad de Trabajo)
+engine = create_engine(DATABASE_URL)  # pool de conexiones
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Clase base para modelos ORM
 Base = declarative_base()
 
-# Dependencia para inyectar sesión por request en FastAPI
+# Dependencia típica para FastAPI
 def get_db():
     db = SessionLocal()
     try:

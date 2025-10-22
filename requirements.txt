@@ -1,4 +1,9 @@
 fastapi
 uvicorn
-pydantic
 sqlalchemy
+pydantic
+pymysql
+psycopg2-binary
+alembic
+python-dotenv
+passlib[bcrypt]
