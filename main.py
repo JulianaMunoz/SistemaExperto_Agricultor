@@ -96,7 +96,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     except Exception:
         return False
 
-# --- LOGIN sin token ---
+# --- LOGIN ---
 @app.post("/login", response_model=schemas.UserRead)
 def login(email: str, password: str, db: Session = Depends(get_db)):
     """
@@ -109,18 +109,6 @@ def login(email: str, password: str, db: Session = Depends(get_db)):
         # No reveles si falló el email o el password
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     return user
-
-# --- Opción alternativa: login con JSON en el body ---
-# from pydantic import BaseModel, EmailStr
-# class LoginInput(BaseModel):
-#     email: EmailStr
-#     password: str
-# @app.post("/login", response_model=schemas.UserRead)
-# def login(payload: LoginInput, db: Session = Depends(get_db)):
-#     user = db.query(models.User).filter(models.User.email == payload.email).first()
-#     if not user or not verify_password(payload.password, user.password):
-#         raise HTTPException(status_code=401, detail="Credenciales inválidas")
-#     return user
 
 # --- UPDATE parcial ---
 @app.patch("/users/{user_id}", response_model=schemas.UserRead)
