@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from db.base_class import Base
+from core.base_class import Base
 
 class Factor_hecho(Base):
     id = Column(Integer, primary_key=True)
