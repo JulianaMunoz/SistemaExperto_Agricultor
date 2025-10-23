@@ -6,4 +6,4 @@ class Factor(Base):
     id = Column(Integer, primary_key=True)
     nombre = Column(String, nullable=False)
     categoria = Column(String, nullable=False)
-    condiciones = relationship("factor_hecho", back_populates="factor", cascade="all, delete-orphan")
+    condiciones = relationship("FactorHecho", back_populates="factor", cascade="all, delete-orphan")

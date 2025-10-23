@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from core.base_class import Base
 
-class Factor_hecho(Base):
+class FactorHecho(Base):
     id = Column(Integer, primary_key=True)
     factor_id = Column(Integer, ForeignKey("factor.id"), nullable=False)
     hecho_id = Column(Integer, ForeignKey("hecho.id"), nullable=False)
