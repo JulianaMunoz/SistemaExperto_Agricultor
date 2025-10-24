@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI, HTTPException, status, Request, Form
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from pydantic import EmailStr
+from typing import List
 
 from core.config import settings
 
@@ -104,6 +105,12 @@ def create_factor(factor: FactorCreate, db: Session = Depends(get_db)):
     db.refresh(new_factor)
     return new_factor
 
+@app.get("/factores/", response_model=List[FactorResponse])
+def get_factores(db: Session = Depends(get_db)):
+    factores = db.query(Factor).all()
+    return factores
+
+
 #Creando Hechos
 @app.post("/hechos/", response_model=HechoResponse)
 def create_hecho(hecho: HechoCreate, db: Session = Depends(get_db)):
@@ -114,6 +121,11 @@ def create_hecho(hecho: HechoCreate, db: Session = Depends(get_db)):
     db.refresh(new_hecho)
     return new_hecho
 
+@app.get("/hechos/", response_model=List[HechoResponse])
+def get_hechos(db: Session = Depends(get_db)):
+    hechos = db.query(Hecho).all()
+    return hechos
+
 #Creando Reglas
 @app.post("/reglas/", response_model=FactorHechoResponse)
 def create_regla(factorHecho: FactorHechoCreate, db: Session = Depends(get_db)):
@@ -123,6 +135,11 @@ def create_regla(factorHecho: FactorHechoCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_regla)
     return new_regla
+
+@app.get("/reglas/", response_model=List[FactorHechoResponse])
+def get_reglas(db: Session = Depends(get_db)):
+    reglas = db.query(FactorHecho).all()
+    return reglas
 
 # -------------------- GESTIÓN DE USUARIOS --------------------
 # Configuración de contraseñas (bcrypt con fallback)
