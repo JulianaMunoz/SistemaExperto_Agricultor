@@ -84,6 +84,9 @@ def home_page(request: Request):
     return templates.TemplateResponse("home.html", {"request": request, "title": "Inicio"})
 
 
+@app.get("/admin", response_model=None)
+def admin(request: Request):
+    return templates.TemplateResponse("admin.html", {"request": request, "title": "Dashboard Admins"})
 
 # -------------------- endpoints de prueba y dominio --------------------
 @app.get("/health")
