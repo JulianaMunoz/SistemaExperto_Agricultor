@@ -28,6 +28,8 @@ from core.deps import get_db
 
 #schemas
 from db.schemas.factor import FactorCreate, FactorResponse
+from db.schemas.hecho import HechoCreate, HechoResponse
+from db.schemas.factor_hecho import FactorHechoCreate, FactorHechoResponse
 from db.schemas.usuario import CrearUsuario, LeerUsuario, ActualizarUsuario
 
 
