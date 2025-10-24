@@ -79,9 +79,9 @@ def register_page(request: Request):
         {"request": request, "title": "Crear cuenta"}
     )
     
-@app.get("/home", response_model=None)
+@app.get("/homeA", response_model=None)
 def home_page(request: Request):
-    return templates.TemplateResponse("home.html", {"request": request, "title": "Inicio"})
+    return templates.TemplateResponse("homeA.html", {"request": request, "title": "Inicio"})
 
 
 

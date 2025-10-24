@@ -72,7 +72,7 @@
 
         const isJson = resp.headers.get('content-type')?.includes('application/json');
         if (resp.ok) {
-    const data = isJson ? await resp.json() : {};
+          const data = isJson ? await resp.json() : {};
     showAlert(`✅ Bienvenido, <b>${data.name}</b>`, 'success');
     setTimeout(() => window.location.href = "/home", 1000);
     } else {
