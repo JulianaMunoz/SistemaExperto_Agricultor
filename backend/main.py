@@ -1,37 +1,41 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, Request, Form
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import RedirectResponse
+from pydantic import EmailStr
+
 from core.config import settings
 
-#imports of our dbs main files
+# DB core
 from core.session import engine
-from core.base_class import Base 
+from core.base_class import Base
 
-#para testear la connection
+# Test de conexión
 import psycopg2
 from psycopg2 import OperationalError
 
-#modelos
+# Modelos
 from db.models.factor import Factor
 from db.models.factor_hecho import FactorHecho
 from db.models.hecho import Hecho
 from db.models.usuario import Usuario
 
-from passlib.context import CryptContext                      # Librería para encriptar contraseñas (bcrypt, sha256_crypt, etc.)
-from sqlalchemy.exc import SQLAlchemyError, IntegrityError     # Excepciones específicas de SQLAlchemy para manejar errores en DB 
-from sqlalchemy import text    
-
+# Utilidades de seguridad y DB
+from passlib.context import CryptContext
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from core.deps import get_db
 
-#inpot schemas
+# Schemas
 from db.schemas.factor import FactorCreate, FactorResponse
-from db.schemas.usuario import CrearUsuario, LeerUsuario , ActualizarUsuario 
+from db.schemas.usuario import CrearUsuario, LeerUsuario, ActualizarUsuario
 
+
+# -------------------- utilidades de arranque --------------------
 def test_connection():
     print("🧠 Probando conexión a la base de datos...")
-    print("🔗 URL:", repr(settings.DATABASE_URL))  # repr para ver si hay comillas o caracteres extra
-
+    print("🔗 URL:", repr(settings.DATABASE_URL))
     try:
-        # Intentar conectar
         conn = psycopg2.connect(settings.DATABASE_URL, sslmode="require", connect_timeout=5)
         print("✅ Conexión exitosa a la base de datos!")
         conn.close()
@@ -41,20 +45,54 @@ def test_connection():
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
-    print("tablas creadas correctamente")
-    
+    print("🧱 Tablas creadas correctamente")
+
 def start_application():
-    app = FastAPI(title=settings.PROJECT_NAME,version=settings.PROJECT_VERSION)
+    app = FastAPI(title=settings.PROJECT_NAME, version=settings.PROJECT_VERSION)
     test_connection()
     create_tables()
     return app
 
+
 app = start_application()
 
-#creando factores
+# Ajusta esta ruta a tu estructura real si lo prefieres relativo
+templates = Jinja2Templates(directory="C:\\Users\\Usuario\\SistemaExperto_Agricultor\\templates")
+
+
+# -------------------- vistas HTML --------------------
+@app.get("/", response_model=None)
+def read_root(request: Request):
+    # index.html: tu página de login con Bootstrap + JS
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "title": "Sistema Experto para Asistencia en la Elección de Cultivos"}
+    )
+
+@app.get("/register", response_model=None)
+def register_page(request: Request):
+    # register.html: tu página de registro con Bootstrap + JS
+    return templates.TemplateResponse(
+        "register.html",
+        {"request": request, "title": "Crear cuenta"}
+    )
+    
+@app.get("/home", response_model=None)
+def home_page(request: Request):
+    return templates.TemplateResponse("home.html", {"request": request, "title": "Inicio"})
+
+
+
+# -------------------- endpoints de prueba y dominio --------------------
+@app.get("/health")
+def health(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
+    return {"ok": True, "db": "up"}
+
+
+# -------------------- FACTORES --------------------
 @app.post("/factores/", response_model=FactorResponse)
 def create_factor(factor: FactorCreate, db: Session = Depends(get_db)):
-    # Crear nuevo
     new_factor = Factor(nombre=factor.nombre, categoria=factor.categoria)
     db.add(new_factor)
     db.commit()
@@ -62,121 +100,116 @@ def create_factor(factor: FactorCreate, db: Session = Depends(get_db)):
     return new_factor
 
 
-
-
-
-
-
-
-
-# GESTION DE USUARIOS
-
-# ---- CONFIGURACIÓN DE CONTRASEÑAS ----
-# Se crea un contexto de cifrado de contraseñas (por defecto con bcrypt)
+# -------------------- GESTIÓN DE USUARIOS --------------------
+# Configuración de contraseñas (bcrypt con fallback)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 try:
-    # Se hace una prueba de cifrado rápida para validar que bcrypt funcione correctamente
-    _ = pwd_context.hash("probe")  
+    _ = pwd_context.hash("probe")
 except Exception as e:
-    # Si bcrypt falla (común en Windows o Python 3.13), se usa sha256_crypt como alternativa
     print("⚠️ bcrypt falló, usando sha256_crypt como fallback:", repr(e))
     pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
-# Función auxiliar que recibe una contraseña y devuelve su versión cifrada
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-
-# ---- ENDPOINT DE SALUD ----
-# Permite comprobar si la API y la base de datos están funcionando
-@app.get("/health")
-def health(db: Session = Depends(get_db)):    # obtiene una sesión de DB mediante la dependencia get_db
-    db.execute(text("SELECT 1"))              # ejecuta una consulta simple para verificar conexión
-    return {"ok": True, "db": "up"}           # devuelve respuesta positiva si todo está bien
-
-
-# ---- ENDPOINT DE CREACIÓN DE USUARIOS ----
-@app.post("/users", response_model=LeerUsuario, status_code=status.HTTP_201_CREATED)
-def create_user(payload: CrearUsuario, db: Session = Depends(get_db)):
-    """
-    Crea un nuevo usuario en la base de datos.
-    - Valida que el email y el nombre no estén duplicados.
-    - Cifra la contraseña antes de guardar.
-    - Maneja errores de integridad y base de datos.
-    """
-
-    try:
-        # 1️⃣ Verificar si ya existe un usuario con el mismo email o nombre
-        exists = db.query(Usuario).filter(
-            (Usuario.email == payload.email) | (Usuario.name == payload.name)
-        ).first()
-        if exists:
-            # Si existe, lanza error 400 (Bad Request)
-            raise HTTPException(status_code=400, detail="Usuario ya existe (email o name)")
-
-        # 2️⃣ Crear el nuevo objeto usuario con los datos validados
-        user = Usuario(
-            name=payload.name,
-            email=payload.email,
-            password=get_password_hash(payload.password),   # Contraseña cifrada
-            is_active=True,
-        )
-
-        # 3️⃣ Guardar en la base de datos
-        db.add(user)
-        db.commit()     # Confirma la transacción
-        db.refresh(user)  # Refresca el objeto para obtener su ID autogenerado
-        return user
-
-    # ---- MANEJO DE ERRORES ----
-    except IntegrityError as ie:
-        db.rollback()   # Revertir cambios si falla la integridad (p.ej., duplicado de email)
-        print("IntegrityError:", repr(ie))
-        raise HTTPException(status_code=400, detail="Violación de integridad (posible duplicado).")
-
-    except SQLAlchemyError as se:
-        db.rollback()   # Revertir cambios ante errores genéricos del motor SQL
-        print("SQLAlchemyError:", repr(se))
-        raise HTTPException(status_code=500, detail="Error de base de datos.")
-
-    except Exception as e:
-        db.rollback()   # Revertir en caso de errores inesperados (errores de Python, lógicos, etc.)
-        print("Unhandled Exception:", repr(e))
-        raise HTTPException(status_code=500, detail="Error interno del servidor.")
-
-# --- helpers de password ---
 def verify_password(plain: str, hashed: str) -> bool:
     try:
         return pwd_context.verify(plain, hashed)
     except Exception:
         return False
 
-# --- LOGIN ---
+
+# ---- lógica central para crear usuario (reutilizable) ----
+def create_user_core(payload: CrearUsuario, db: Session) -> Usuario:
+    # Verificar duplicados por email o name
+    exists = db.query(Usuario).filter(
+        (Usuario.email == payload.email) | (Usuario.name == payload.name)
+    ).first()
+    if exists:
+        raise HTTPException(status_code=400, detail="Usuario ya existe (email o name)")
+
+    user = Usuario(
+        name=payload.name,
+        email=payload.email,
+        password=get_password_hash(payload.password),
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+# ---- creación vía JSON (API) ----
+@app.post("/users", response_model=LeerUsuario, status_code=status.HTTP_201_CREATED)
+def create_user(payload: CrearUsuario, db: Session = Depends(get_db)):
+    try:
+        return create_user_core(payload, db)
+    except IntegrityError as ie:
+        db.rollback()
+        print("IntegrityError:", repr(ie))
+        raise HTTPException(status_code=400, detail="Violación de integridad (posible duplicado).")
+    except SQLAlchemyError as se:
+        db.rollback()
+        print("SQLAlchemyError:", repr(se))
+        raise HTTPException(status_code=500, detail="Error de base de datos.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print("Unhandled Exception:", repr(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
+
+
+# ---- creación vía FORM-DATA (desde register.html) ----
+@app.post("/users-form", response_model=LeerUsuario, status_code=status.HTTP_201_CREATED)
+def create_user_form(
+    name: str = Form(...),
+    email: EmailStr = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        payload = CrearUsuario(name=name, email=email, password=password)
+        return create_user_core(payload, db)
+    except IntegrityError as ie:
+        db.rollback()
+        print("IntegrityError:", repr(ie))
+        raise HTTPException(status_code=400, detail="Violación de integridad (posible duplicado).")
+    except SQLAlchemyError as se:
+        db.rollback()
+        print("SQLAlchemyError:", repr(se))
+        raise HTTPException(status_code=500, detail="Error de base de datos.")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print("Unhandled Exception:", repr(e))
+        raise HTTPException(status_code=500, detail="Error interno del servidor.")
+
+
+# ---- LOGIN por form-data (desde index.html) ----
 @app.post("/login", response_model=LeerUsuario)
-def login(email: str, password: str, db: Session = Depends(get_db)):
-    """
-    Login básico SIN JWT:
-    - Recibe email y password como query/body simple (puedes enviarlos como form-data, JSON o query).
-    - Verifica credenciales y devuelve el usuario.
-    """
+def login(
+    email: str = Form(...),
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
     user = db.query(Usuario).filter(Usuario.email == email).first()
     if not user or not verify_password(password, user.password):
-        # No reveles si falló el email o el password
+        # Sin revelar qué falló
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
     return user
 
-# --- UPDATE parcial ---
+
+# ---- UPDATE parcial ----
 @app.patch("/users/{user_id}", response_model=LeerUsuario)
 def update_user(user_id: int, payload: ActualizarUsuario, db: Session = Depends(get_db)):
-    """
-    Actualiza campos opcionales: name, email, is_active, password.
-    Valida colisión de email.
-    """
-    user = db.query(Usuario).get(user_id)
+    # Usar db.get() (SQLAlchemy 2.x) si lo tienes disponible
+    user = db.get(Usuario, user_id) if hasattr(db, "get") else db.query(Usuario).get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
-    # Validar email duplicado si viene en el payload
     if payload.email is not None:
         exists = db.query(Usuario).filter(
             Usuario.email == payload.email,
@@ -187,7 +220,6 @@ def update_user(user_id: int, payload: ActualizarUsuario, db: Session = Depends(
         user.email = payload.email
 
     if payload.name is not None:
-        # opcional: validar colisión de name
         exists_name = db.query(Usuario).filter(
             Usuario.name == payload.name,
             Usuario.id != user_id
@@ -206,13 +238,11 @@ def update_user(user_id: int, payload: ActualizarUsuario, db: Session = Depends(
     db.refresh(user)
     return user
 
-# --- DELETE ---
+
+# ---- DELETE ----
 @app.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(user_id: int, db: Session = Depends(get_db)):
-    """
-    Elimina un usuario por id.
-    """
-    user = db.query(Usuario).get(user_id)
+    user = db.get(Usuario, user_id) if hasattr(db, "get") else db.query(Usuario).get(user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     db.delete(user)
