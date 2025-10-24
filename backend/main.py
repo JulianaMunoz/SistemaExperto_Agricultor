@@ -59,7 +59,7 @@ def start_application():
 app = start_application()
 
 # Ajusta esta ruta a tu estructura real si lo prefieres relativo
-templates = Jinja2Templates(directory="C:\\Users\\Usuario\\SistemaExperto_Agricultor\\templates")
+templates = Jinja2Templates(directory="../templates")
 
 
 # -------------------- vistas HTML --------------------

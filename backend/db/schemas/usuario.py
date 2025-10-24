@@ -9,7 +9,7 @@ class LeerUsuario(BaseModel):
     id: int
     name: str
     email: EmailStr
-    is_active: bool
+    is_active: bool = True
     model_config = ConfigDict(from_attributes=True)
 
 class ActualizarUsuario(BaseModel):
