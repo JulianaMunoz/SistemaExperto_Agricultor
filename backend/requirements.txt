@@ -9,6 +9,5 @@ psycopg2-binary==2.9.9
 bcrypt==4.0.1
 passlib==1.7.4
 pydantic[email]==1.10.7
-dotenv
 jinja2
 python-multipart
