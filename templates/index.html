@@ -1,22 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="../static/styles.css">
-    <title>Document</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 </head>
-<body>
-    <h1>AgroExpert</h1>
-    <h2>Tu aliado inteligente para un campo más productivo</h2>
-    <div id="focus_seccion">
-        <h2>Inicio de Sesión</h2>
-        <h3>Usuario</h3>
-        <input type="text" name="usuario" size="40">
-        <h3>Contraseña</h3>
-        <input type="password" name="contraseña" size="40">
-        <button type="submit">Continuar</button>
+<body class="bg-light d-flex align-items-center" style="height: 100vh;">
+  <div class="container">
+    <div class="row justify-content-center">
+      <div class="col-md-4">
+        <div id="alertPlaceholder"></div>
+
+        <div class="card shadow-lg border-0 rounded-4">
+          <div class="card-body p-4">
+            <h3 class="text-center mb-4">Iniciar Sesión</h3>
+
+            <form id="loginForm" method="post" action="/login" novalidate>
+              <div class="mb-3">
+                <label for="email" class="form-label">Correo electrónico</label>
+                <input type="email" class="form-control" id="email" name="email" placeholder="ejemplo@correo.com" required />
+              </div>
+
+              <div class="mb-3">
+                <label for="password" class="form-label">Contraseña</label>
+                <input type="password" class="form-control" id="password" name="password" placeholder="••••••••" required />
+              </div>
+
+              <button type="submit" id="btnSubmit" class="btn btn-primary w-100">
+                Entrar
+              </button>
+            </form>
+
+            <p class="text-center mt-3 mb-0">
+              ¿No tienes cuenta? <a href="/register" class="text-decoration-none">Regístrate</a>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
-    <span>Aún no tienes una cuenta? <a href="./sign_In.html">¡Crea tu cuenta aquí!</a></span>
+  </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const btn = document.getElementById('btnSubmit');
+    const alertPlaceholder = document.getElementById('alertPlaceholder');
+
+    function showAlert(message, type = 'info') {
+      alertPlaceholder.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert" style="max-width: 28rem; margin: 0 auto 1rem;">
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      if (!form.checkValidity()) {
+        showAlert('Por favor completa los campos requeridos.', 'warning');
+        return;
+      }
+
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'Ingresando…';
+
+      try {
+        const formData = new FormData(form);
+        const resp = await fetch(form.action, { method: 'POST', body: formData });
+
+        const isJson = resp.headers.get('content-type')?.includes('application/json');
+        if (resp.ok) {
+    const data = isJson ? await resp.json() : {};
+    showAlert(`✅ Bienvenido, <b>${data.name}</b>`, 'success');
+    setTimeout(() => window.location.href = "/home", 1000);
+    } else {
+          const err = isJson ? await resp.json() : { detail: 'Error desconocido' };
+          showAlert(err.detail || 'Credenciales inválidas', 'danger');
+        }
+      } catch (error) {
+        showAlert('No se pudo contactar al servidor. Verifica la API.', 'danger');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
