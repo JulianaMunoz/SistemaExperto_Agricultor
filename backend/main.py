@@ -16,7 +16,10 @@ from db.models.hecho import Hecho
 
 from sqlalchemy.orm import Session
 from core.deps import get_db
+#schemas
 from db.schemas.factor import FactorCreate, FactorResponse
+from db.schemas.hecho import HechoCreate, HechoResponse
+from db.schemas.factor_hecho import FactorHechoCreate, FactorHechoResponse
 
 
 def test_connection():
@@ -53,3 +56,23 @@ def create_factor(factor: FactorCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_factor)
     return new_factor
+
+#Creando Hechos
+@app.post("/hechos/", response_model=HechoResponse)
+def create_hecho(hecho: HechoCreate, db: Session = Depends(get_db)):
+    # Crear nuevo
+    new_hecho = Hecho(descripcion=hecho.descripcion)
+    db.add(new_hecho)
+    db.commit()
+    db.refresh(new_hecho)
+    return new_hecho
+
+#Creando Reglas
+@app.post("/reglas/", response_model=FactorHechoResponse)
+def create_regla(factorHecho: FactorHechoCreate, db: Session = Depends(get_db)):
+    # Crear nuevo
+    new_regla = FactorHecho(factor_id=factorHecho.factor_id,hecho_id=factorHecho.hecho_id,operador=factorHecho.operador,valor=factorHecho.valor)
+    db.add(new_regla)
+    db.commit()
+    db.refresh(new_regla)
+    return new_regla
