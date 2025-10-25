@@ -79,6 +79,10 @@ def home_page(request: Request):
 def vista_recomendaciones(request: Request):
     return templates.TemplateResponse("recomendaciones.html", {"request": request, "title": "Recomendaciones"})
 
+@app.get("/vista/reglas", response_model=None)
+def vista_recomendaciones(request: Request):
+    return templates.TemplateResponse("reglas.html", {"request": request, "title": "Reglas"})
+
 
 # ============================================================
 #                     ENDPOINTS DE NEGOCIO
