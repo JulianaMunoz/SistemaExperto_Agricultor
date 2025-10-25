@@ -105,11 +105,19 @@ def create_factor(factor: FactorCreate, db: Session = Depends(get_db)):
     db.refresh(new_factor)
     return new_factor
 
+#consulta de todos los factores
 @app.get("/factores/", response_model=List[FactorResponse])
 def get_factores(db: Session = Depends(get_db)):
     factores = db.query(Factor).all()
     return factores
 
+#consulta de un solo factor
+@app.get("/factores/{factor_id}", response_model=FactorResponse)
+def get_factor(factor_id: int, db: Session = Depends(get_db)):
+    factor = db.query(Factor).filter(Factor.id == factor_id).first()
+    if not factor:
+        raise HTTPException(status_code=404, detail="Factor no encontrado")
+    return factor
 
 #Creando Hechos
 @app.post("/hechos/", response_model=HechoResponse)
@@ -121,10 +129,19 @@ def create_hecho(hecho: HechoCreate, db: Session = Depends(get_db)):
     db.refresh(new_hecho)
     return new_hecho
 
+#consulta de todos los hechos
 @app.get("/hechos/", response_model=List[HechoResponse])
 def get_hechos(db: Session = Depends(get_db)):
     hechos = db.query(Hecho).all()
     return hechos
+
+#consulta de un solo hecho
+@app.get("/hechos/{hecho_id}", response_model=HechoResponse)
+def get_hecho(hecho_id: int, db: Session = Depends(get_db)):
+    hecho = db.query(Hecho).filter(Hecho.id == hecho_id).first()
+    if not hecho:
+        raise HTTPException(status_code=404, detail="Hecho no encontrado")
+    return hecho
 
 #Creando Reglas
 @app.post("/reglas/", response_model=FactorHechoResponse)
@@ -136,10 +153,19 @@ def create_regla(factorHecho: FactorHechoCreate, db: Session = Depends(get_db)):
     db.refresh(new_regla)
     return new_regla
 
+#consulta de todas las reglas
 @app.get("/reglas/", response_model=List[FactorHechoResponse])
 def get_reglas(db: Session = Depends(get_db)):
     reglas = db.query(FactorHecho).all()
     return reglas
+
+#consulta una sola regla
+@app.get("/reglas/{regla_id}", response_model=FactorHechoResponse)
+def get_regla(regla_id: int, db: Session = Depends(get_db)):
+    regla = db.query(FactorHecho).filter(FactorHecho.id == regla_id).first()
+    if not regla:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+    return regla
 
 # -------------------- GESTIÓN DE USUARIOS --------------------
 # Configuración de contraseñas (bcrypt con fallback)
