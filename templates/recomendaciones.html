@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recomendaciones</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <style>
+    .scroll-x { overflow-x: auto; white-space: nowrap; }
+    .cat-card { min-width: 320px; display: inline-block; vertical-align: top; }
+  </style>
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/home">🌾 Sistema Experto</a>
+      <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div id="nav" class="collapse navbar-collapse">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item"><a class="nav-link" href="/home">Inicio</a></li>
+          <li class="nav-item"><a class="nav-link active" href="/vista/recomendaciones">Recomendaciones</a></li>
+          <li class="nav-item"><a class="nav-link" href="/">Cerrar sesión</a></li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container py-4">
+    <h2 class="mb-2">Recomendaciones</h2>
+    <p class="text-muted">Cada tarjeta representa un <b>Factor</b>. Elige <b>un valor</b> (de la tabla <code>factor_hecho</code>) por factor y presiona <b>Consultar</b>.</p>
+
+    <div id="estado" class="alert alert-info d-flex align-items-center" role="alert">
+      <div class="spinner-border me-2" role="status" aria-hidden="true"></div>
+      Cargando factores y valores…
+    </div>
+
+    <!-- Tarjetas de factores (scroll horizontal) -->
+    <div id="contenedor" class="scroll-x d-none gap-3 pb-2"></div>
+
+    <div class="d-flex gap-2 mt-3">
+      <button id="btnConsultar" class="btn btn-success" disabled>Consultar</button>
+      <button id="btnLimpiar" class="btn btn-outline-secondary" disabled>Limpiar</button>
+    </div>
+
+    <hr class="my-4" />
+
+    <div id="boxResultados" class="d-none">
+      <h4 class="mb-3">Resultado</h4>
+      <div id="resultadoVacio" class="alert alert-warning d-none">No hay recomendaciones para la selección.</div>
+      <ul id="listaRecomendaciones" class="list-group"></ul>
+    </div>
+  </main>
+
+  <footer class="bg-success text-white text-center py-3">
+    <p class="mb-0">© 2025 Sistema Experto Agricultor</p>
+  </footer>
+
+  <script>
+    const estado = document.getElementById('estado');
+    const contenedor = document.getElementById('contenedor');
+    const btnConsultar = document.getElementById('btnConsultar');
+    const btnLimpiar = document.getElementById('btnLimpiar');
+    const boxResultados = document.getElementById('boxResultados');
+    const listaRec = document.getElementById('listaRecomendaciones');
+    const resultadoVacio = document.getElementById('resultadoVacio');
+
+    // Carga: cada item debe traer factor_nombre y sus valores de factor_hecho (solo 'valor')
+    async function cargarDatos() {
+      try {
+        const resp = await fetch('/factors-values');  // <--- ENDPOINT ESPERADO
+        if (!resp.ok) throw new Error();
+        const data = await resp.json();
+        construirUI(data);
+        estado.classList.add('d-none');
+      } catch (e) {
+        estado.className = 'alert alert-danger';
+        estado.textContent = 'No se pudieron cargar los datos. Verifica la API.';
+      }
+    }
+
+    function construirUI(factores) {
+      contenedor.innerHTML = '';
+      if (!Array.isArray(factores) || factores.length === 0) {
+        estado.className = 'alert alert-warning';
+        estado.textContent = 'No hay factores/valores cargados.';
+        return;
+      }
+
+      factores.forEach((f, idx) => {
+        const card = document.createElement('div');
+        card.className = 'card cat-card shadow-sm border-0 me-3';
+        card.innerHTML = `
+          <div class="card-body">
+            <h5 class="card-title text-success mb-3">${f.factor_nombre || ('Factor #' + f.factor_id)}</h5>
+            <div class="mb-2">
+              <label class="form-label">Valor</label>
+              <select class="form-select" data-role="select-valor" data-factor="${f.factor_id}">
+                <option value="">-- Elegir valor --</option>
+                ${(f.valores || []).map(v => `
+                  <option value="${v.factor_hecho_id}">${v.valor}</option>
+                `).join('')}
+              </select>
+            </div>
+          </div>
+        `;
+        contenedor.appendChild(card);
+      });
+
+      contenedor.classList.remove('d-none');
+      btnConsultar.disabled = false;
+      btnLimpiar.disabled = false;
+    }
+
+    btnLimpiar.addEventListener('click', () => {
+      contenedor.querySelectorAll('[data-role="select-valor"]').forEach(s => s.value = '');
+      listaRec.innerHTML = '';
+      boxResultados.classList.add('d-none');
+      resultadoVacio.classList.add('d-none');
+    });
+
+    btnConsultar.addEventListener('click', async () => {
+      // Recolectar los factor_hecho_id seleccionados (uno por factor)
+      const seleccionados = Array.from(contenedor.querySelectorAll('[data-role="select-valor"]'))
+        .map(s => s.value)
+        .filter(v => v);
+
+      if (seleccionados.length === 0) {
+        alert('Selecciona al menos un valor.');
+        return;
+      }
+
+      const fd = new FormData();
+      seleccionados.forEach(id => fd.append('factor_hecho_ids', id));
+
+      btnConsultar.disabled = true;
+      const original = btnConsultar.textContent;
+      btnConsultar.textContent = 'Consultando…';
+
+      try {
+        // Si aún no tienes este endpoint, puedes comentar esta llamada y sólo mostrar la selección.
+        const resp = await fetch('/recomendar-fh', { method: 'POST', body: fd });
+        if (!resp.ok) throw new Error();
+        const data = await resp.json();
+        const recs = data.recomendaciones || [];
+
+        listaRec.innerHTML = '';
+        if (recs.length === 0) {
+          resultadoVacio.classList.remove('d-none');
+          boxResultados.classList.remove('d-none');
+          return;
+        }
+
+        resultadoVacio.classList.add('d-none');
+        recs.forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item d-flex justify-content-between align-items-start';
+          li.innerHTML = `
+            <div class="me-2">
+              <div class="fw-semibold">${item.descripcion || 'Recomendación'}</div>
+              ${item.detalle ? `<small class="text-muted">${item.detalle}</small>` : ''}
+            </div>
+            ${item.score !== undefined ? `<span class="badge text-bg-success rounded-pill">score ${item.score}</span>` : ''}
+          `;
+          listaRec.appendChild(li);
+        });
+        boxResultados.classList.remove('d-none');
+      } catch (e) {
+        // Si no tienes backend aún, mostramos lo elegido:
+        listaRec.innerHTML = '';
+        seleccionados.forEach(id => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.textContent = `Seleccionado factor_hecho_id: ${id}`;
+          listaRec.appendChild(li);
+        });
+        boxResultados.classList.remove('d-none');
+      } finally {
+        btnConsultar.disabled = false;
+        btnConsultar.textContent = original;
+      }
+    });
+
+    cargarDatos();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
